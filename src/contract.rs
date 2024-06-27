@@ -1,3 +1,5 @@
+
+
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response, StdResult, to_binary};
@@ -53,7 +55,7 @@ pub fn execute(
     match msg {
         ExecuteMsg::BuyTicket {} => try_buy_ticket(deps, env, info),
         ExecuteMsg::EndRound {} => try_end_round(deps, env, info),
-        ExecuteMsg::Pause {} => try_pause(deps, info),
+        ExecuteMsg::Pause {new_duration} => try_pause(deps, env, info, new_duration),
         ExecuteMsg::Resume {} => try_resume(deps, info),
     }
 }
@@ -63,6 +65,10 @@ fn try_buy_ticket(deps: DepsMut, env: Env, info: MessageInfo) -> Result<Response
     let mut round = CURRENT_ROUND.load(deps.storage)?;
     if config.paused {
         return Err(ContractError::Paused {});
+    }
+    
+    if round.participants.contains(&info.sender) {
+        return Err(ContractError:: OnlyBuyOnce {  });
     }
 
     let sent_funds = info.funds.iter().find(|c| c.denom == config.ticket_price.denom);
@@ -98,6 +104,7 @@ fn try_end_round(deps: DepsMut, env: Env, info: MessageInfo) -> Result<Response,
     if round.participants.is_empty() {
         return Err(ContractError::NoParticipants {});
     }
+
 
     let winner_count = 3;
     let prize_amount = round.total_funds.amount.u128() * 90 / 100 / winner_count;
@@ -155,13 +162,17 @@ fn try_resume(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractErro
     Ok(Response::new().add_attribute("action", "resume"))
 }
 
-fn try_pause(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractError> {
+fn try_pause(deps: DepsMut, env: Env, info: MessageInfo, new_duration: Option<u64>) -> Result<Response, ContractError> {
     let mut config = CONFIG.load(deps.storage)?;
 
     if info.sender != config.admin {
         return Err(ContractError::Unauthorized {});
     }
     config.paused = true;
+    // if the new duration typed
+    if let Some(duration) = new_duration {
+        config.round_duration = duration;
+    }
     CONFIG.save(deps.storage, &config)?;
     Ok(Response::new().add_attribute("action", "pause"))
 }
@@ -361,4 +372,52 @@ mod tests {
         let winners: Vec<Addr> = from_binary(&res).unwrap();
         assert_eq!(winners.len(), 3);
     }
+
+    #[test]
+    fn test_pause_round() {
+        let mut deps = mock_dependencies();
+        let env = mock_env();
+        let info = mock_info("admin", &[]);
+    
+        let msg = InstantiateMsg {
+            admin: Some("admin".to_string()),
+            ticket_price: coin(1, "orai"),
+            round_duration: 604800,
+        };
+        let _res = instantiate(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+    
+        // Pause the round and change duration
+        let info = mock_info("admin", &[]);
+        let msg = ExecuteMsg::Pause { new_duration: Some(1000) };
+        let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+    
+        let config = CONFIG.load(&deps.storage).unwrap();
+        assert_eq!(config.paused, true);
+        assert_eq!(config.round_duration, 1000);
+    }
+
+    #[test]
+    fn test_one_ticket_per_address() {
+        let mut deps = mock_dependencies();
+        let env = mock_env();
+        let info = mock_info("admin", &[]);
+    
+        let msg = InstantiateMsg {
+            admin: Some("admin".to_string()),
+            ticket_price: coin(1, "orai"),
+            round_duration: 604800,
+        };
+        let _res = instantiate(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+    
+        let info1 = mock_info("buyer", &[coin(1, "orai")]);
+        let msg1 = ExecuteMsg::BuyTicket {};
+        let _res1 = execute(deps.as_mut(), env.clone(), info1.clone(), msg1.clone()).unwrap();
+    
+        // Trying to buy a second ticket should fail
+        let res = execute(deps.as_mut(), env.clone(), info1.clone(), msg1.clone());
+        assert!(res.is_err());
+    }
+    
+
+
 }

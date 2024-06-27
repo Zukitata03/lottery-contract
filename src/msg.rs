@@ -15,7 +15,7 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     BuyTicket {},
     EndRound {},
-    Pause {},
+    Pause {new_duration: Option<u64>},
     Resume {},
 }
 

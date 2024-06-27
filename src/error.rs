@@ -24,7 +24,11 @@ pub enum ContractError {
     #[error("cant find this id ")]
     ParticipantNotFound {},
     
+    #[error("Duration exceeded")]
+    DurationExceeded {},
 
+    #[error("Already bought the ticket")] 
+    OnlyBuyOnce {},
 }
 
 impl From<ContractError> for StdError {

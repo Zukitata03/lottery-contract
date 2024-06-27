@@ -77,17 +77,17 @@ async function main() {
     // console.log("Execute Buy Ticket result:", executeBuyTicket);
 
 
-     // Query the ticket ID for the participant
-     const queryMsg = {
-        get_ticket_id: { address }
-    };
+    //  // Query the ticket ID for the participant
+    //  const queryMsg = {
+    //     get_ticket_id: { address }
+    // };
 
-    const queryResult = await client.queryContractSmart(
-        contractAddress,
-        queryMsg
-    );
+    // const queryResult = await client.queryContractSmart(
+    //     contractAddress,
+    //     queryMsg
+    // );
 
-    console.log("Query Ticket ID response:", queryResult);
+    // console.log("Query Ticket ID response:", queryResult);
 
     // // Example of ending a round
     // const endRoundMsg = {
@@ -103,13 +103,13 @@ async function main() {
 
     // //======================================QUERY========================================
 
-    // const queryRoundWinners = await client.queryContractSmart(
-    //     contractAddress,
-    //     { get_round_winners: { round_id: 1 } }
-    // );
+    const queryRoundWinners = await client.queryContractSmart(
+        contractAddress,
+        { get_round_winners: { round_id: 1 } }
+    );
 
-    // console.log("Query Round Winners response:");
-    // console.log(queryRoundWinners);
+    console.log("Query Round Winners response:");
+    console.log(queryRoundWinners);
 
     
     // Close the connection
